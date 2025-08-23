@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![CUDA Logo](https://via.placeholder.com/400x200/4A90E2/FFFFFF?text=CUDA+Assistant)
+
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.68+-green.svg)](https://fastapi.tiangolo.com/)
@@ -296,10 +296,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ by the CUDA Team**
+**Made with ❤️ by Yamini Thirumani**
 
-[![GitHub stars](https://img.shields.io/github/stars/yourusername/cuda-assistant?style=social)](https://github.com/yourusername/cuda-assistant)
-[![GitHub forks](https://img.shields.io/github/forks/yourusername/cuda-assistant?style=social)](https://github.com/yourusername/cuda-assistant)
-[![GitHub issues](https://img.shields.io/github/issues/yourusername/cuda-assistant)](https://github.com/yourusername/cuda-assistant/issues)
+[![GitHub stars](https://img.shields.io/github/stars/yaminithirumani/cuda?style=social)](https://github.com/yourusername/cuda-assistant)
+[![GitHub forks](https://img.shields.io/github/forks/yaminithirumani/cuda?style=social)](https://github.com/yourusername/cuda-assistant)
+[![GitHub issues](https://img.shields.io/github/issues/yaminithirumani/cuda)](https://github.com/yaminithirumani/cuda/issues)
 
 </div>
