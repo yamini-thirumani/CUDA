@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-transformers
-torch
-nest_asyncio
-pydantic
-streamlit

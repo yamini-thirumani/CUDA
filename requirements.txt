@@ -1,7 +1,9 @@
 fastapi
 uvicorn
+pydantic
 transformers
 torch
-nest_asyncio
-pydantic
+accelerate       # needed for device_map="auto"
+bitsandbytes     # needed for 4-bit quantization of DeepSeek-Coder
 streamlit
+requests

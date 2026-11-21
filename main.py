@@ -1,40 +1,45 @@
-from fastapi import FastAPI, Request
-from agents.judge_agent import judge_agent
-from pydantic import BaseModel
-from agents.codewriter_agent import OfflineCodeWriterAgent
-from agents.planner_agent import PlannerAgent
-from services.pipeline import run_all_agents
 import logging
 
-app = FastAPI()
+from fastapi import FastAPI
 
-# Initialize agents
+from agents.codewriter_agent import OfflineCodeWriterAgent
+from agents.planner_agent import PlannerAgent
+from models.schemas import InputCode, PlannerInput
+from services.pipeline import run_all_agents
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="CUDA - Collaborative Unified Developer Assistant")
+
+# Load the models once at startup and share them across requests
 code_writer = OfflineCodeWriterAgent()
 planner_agent = PlannerAgent(code_writer)
 
-# Request models
-class InputCode(BaseModel):
-    code: str
 
-class PlannerInput(BaseModel):
-    text: str
-    
 @app.get("/")
 def read_root():
     return {"message": "Welcome to CUDA Agent Server! Use /docs to explore."}
 
+
 @app.post("/planner")
 async def planner(data: PlannerInput):
-    text = data.text
-    output = await planner_agent.handle_input(text)
-    return {"output": output}
+    """Natural-language task (or code) -> generated code -> agent pipeline."""
+    return await planner_agent.handle_input(data.text)
+
 
 @app.post("/run-agents")
 async def run_agents_api(data: InputCode):
-    logging.info(f"Run agents received code: {data.code}")
+    """Code -> Fix / Refactor / Optimize agents in parallel -> Judge picks the best."""
+    logger.info("Run agents received %d characters of code", len(data.code))
     try:
-        result = await run_all_agents(data.code)
+        return await run_all_agents(data.code)
     except Exception as e:
-        logging.error(f"Run agents error: {e}")
-        result = {"error": str(e)}
-    return result
+        logger.exception("Run agents error")
+        return {"error": str(e)}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

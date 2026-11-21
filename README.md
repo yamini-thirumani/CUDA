@@ -1,305 +1,75 @@
-# 🚀 CUDA - Collaborative Unified Developer Assistant
+# CUDA – Collaborative Unified Developer Assistant
 
-<div align="center">
+A multi-agent LLM system that improves Python code. You give it code (or a task in plain English). Three specialised agents each produce an improved version in parallel, and a **Judge** agent picks the best one.
 
+Built during a summer research internship with the University of North Texas (2025), on the theme *AI agents for software development*.
 
-
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.68+-green.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-red.svg)](https://streamlit.io/)
-[![Transformers](https://img.shields.io/badge/Transformers-4.0+-orange.svg)](https://huggingface.co/transformers/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-**An intelligent multi-agent system for code analysis, optimization, and generation**
-
-[Features](#-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [API Reference](#-api-reference) • [Contributing](#-contributing)
-
-</div>
-
----
-
-## 📋 Table of Contents
-
-- [Overview](#-overview)
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Quick Start](#-quick-start)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [API Reference](#-api-reference)
-- [Screenshots](#-screenshots)
-- [Contributing](#-contributing)
-- [License](#-license)
-
-## 🎯 Overview
-
-CUDA (Collaborative Unified Developer Assistant) is an advanced AI-powered code analysis and generation system that leverages multiple specialized agents to provide comprehensive code solutions. The system combines the power of Large Language Models with intelligent agent collaboration to deliver high-quality, optimized, and well-structured code.
-
-### Key Capabilities
-
-- **🔧 Code Fixing**: Automatically identifies and fixes bugs and edge cases
-- **🔄 Code Refactoring**: Improves code readability and modularity
-- **⚡ Code Optimization**: Enhances performance and efficiency
-- **🧠 Intelligent Planning**: Generates code from natural language descriptions
-- **🏆 Smart Judging**: Evaluates and selects the best solution from multiple agents
-- **🌐 Web Interface**: User-friendly Streamlit frontend for easy interaction
-
-## ✨ Features
-
-### 🤖 Multi-Agent Architecture
-- **Fix Agent**: Identifies and resolves bugs, handles edge cases
-- **Refactor Agent**: Improves code structure and readability
-- **Optimizer Agent**: Enhances performance and efficiency
-- **Judge Agent**: Evaluates solutions and selects the best one
-- **Planner Agent**: Converts natural language to code
-- **Code Writer Agent**: Generates code using local LLM models
-
-### 🚀 Advanced Capabilities
-- **Parallel Processing**: Multiple agents work simultaneously for faster results
-- **Intelligent Scoring**: Sophisticated evaluation system for solution selection
-- **Error Handling**: Robust exception handling and validation
-- **Real-time Processing**: Fast response times with async operations
-- **Offline Support**: Local model inference for privacy and speed
-
-### 🎨 User Interface
-- **Streamlit Web App**: Intuitive web interface for easy interaction
-- **Dual Input Modes**: Support for both code and natural language input
-- **Real-time Feedback**: Live processing status and results display
-- **Responsive Design**: Works seamlessly across different devices
-
-## 🏗️ Architecture
+## How it works
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   FastAPI       │    │   Agent System  │
-│   (Streamlit)   │◄──►│   Backend       │◄──►│                 │
-│                 │    │                 │    │ ┌─────────────┐ │
-└─────────────────┘    └─────────────────┘    │ │ Fix Agent   │ │
-                                              │ └─────────────┘ │
-                                              │ ┌─────────────┐ │
-                                              │ │Refactor Agent│ │
-                                              │ └─────────────┘ │
-                                              │ ┌─────────────┐ │
-                                              │ │Optimizer    │ │
-                                              │ └─────────────┘ │
-                                              │ ┌─────────────┐ │
-                                              │ │ Judge Agent │ │
-                                              │ └─────────────┘ │
-                                              └─────────────────┘
+Streamlit UI ──► FastAPI backend
+                   │
+   /planner ───────┤  text → TinyLlama 1.1B writes a first draft
+   /run-agents ────┤  code
+                   ▼
+   ┌──────────── run concurrently ────────────┐
+   │  Fix agent   │ Refactor agent │ Optimizer │   (DeepSeek-Coder 6.7B, 4-bit)
+   └──────────────────────┬───────────────────┘
+                          ▼
+                     Judge agent
+      1. LLM judge: scores each version 0–10 on correctness,
+         readability, performance, robustness, consistency (JSON)
+      2. Fallback: heuristic scoring (ast syntax check, error
+         handling, docstrings, complexity penalty, ...)
+                          ▼
+     Best version + all versions + scores + diff shown in the UI
 ```
 
-### System Components
+| Component | File | What it does |
+|---|---|---|
+| API | `main.py` | FastAPI app with `/`, `/planner`, `/run-agents` |
+| Request models | `models/schemas.py` | Pydantic models for request bodies |
+| Pipeline | `services/pipeline.py` | Runs the three agents concurrently (`run_in_executor` + `asyncio.gather`), then calls the judge |
+| Model | `agents/model_loader.py` | Loads DeepSeek-Coder 6.7B Instruct with 4-bit NF4 quantization (bitsandbytes) so it fits on a single GPU |
+| Agents | `agents/fix_agent.py`, `refactor_agent.py`, `optimizer_agent.py` | Each agent is a focused prompt to the shared model |
+| Judge | `agents/judge_agent.py` | LLM-based scoring with a heuristic fallback |
+| Planner | `agents/planner_agent.py` | Detects code vs. natural language using Python's `ast` parser; generates code with TinyLlama when needed |
+| Code writer | `agents/codewriter_agent.py` | TinyLlama 1.1B for lightweight code generation |
+| UI | `frontend/app.py` | Streamlit app: prompt or code input, winner, all versions, scores, diff |
 
-1. **Frontend Layer**: Streamlit-based web interface
-2. **API Layer**: FastAPI REST API for agent communication
-3. **Agent Layer**: Specialized AI agents for different tasks
-4. **Model Layer**: Local LLM models for code generation and analysis
+## Running it
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.8 or higher
-- CUDA-compatible GPU (optional, for faster inference)
-- 8GB+ RAM recommended
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/cuda-assistant.git
-   cd cuda-assistant
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Start the backend server**
-   ```bash
-   python main.py
-   ```
-
-4. **Launch the frontend**
-   ```bash
-   cd frontend
-   streamlit run app.py
-   ```
-
-5. **Access the application**
-   - Frontend: http://localhost:8501
-   - API Docs: http://localhost:8000/docs
-
-## 💻 Usage
-
-### Web Interface
-
-1. **Open the Streamlit app** in your browser
-2. **Choose input type**: Code or Prompt
-3. **Enter your code or description**
-4. **Click "Send"** to process
-5. **View results** with detailed explanations
-
-### API Usage
-
-#### Code Analysis
-```python
-import requests
-
-# Analyze and improve code
-code = """
-def divide(a, b):
-    return a / b
-"""
-
-response = requests.post("http://localhost:8000/run-agents", 
-                        json={"code": code})
-result = response.json()
-
-print(f"Best Code: {result['final_code']}")
-print(f"Winner: {result['winner']}")
-print(f"Reason: {result['reason']}")
-```
-
-#### Natural Language to Code
-```python
-# Generate code from description
-prompt = "Create a function to calculate fibonacci numbers"
-
-response = requests.post("http://localhost:8000/planner", 
-                        json={"text": prompt})
-result = response.json()
-
-print(f"Generated Code: {result['output']}")
-```
-
-## 📚 API Reference
-
-### Endpoints
-
-#### `POST /run-agents`
-Analyzes and improves code using multiple agents.
-
-**Request Body:**
-```json
-{
-  "code": "your_python_code_here"
-}
-```
-
-**Response:**
-```json
-{
-  "final_code": "improved_code",
-  "winner": "agent_name",
-  "reason": "explanation"
-}
-```
-
-#### `POST /planner`
-Converts natural language to code.
-
-**Request Body:**
-```json
-{
-  "text": "your_description_here"
-}
-```
-
-**Response:**
-```json
-{
-  "output": "generated_code"
-}
-```
-
-#### `GET /`
-Health check endpoint.
-
-**Response:**
-```json
-{
-  "message": "Welcome to CUDA Agent Server! Use /docs to explore."
-}
-```
-
-## 📸 Screenshots
-
-### Main Interface
-![Main Interface](https://via.placeholder.com/800x400/4A90E2/FFFFFF?text=Main+Interface)
-
-### Code Analysis Results
-![Code Analysis](https://via.placeholder.com/800x400/50C878/FFFFFF?text=Code+Analysis+Results)
-
-### Agent Comparison
-![Agent Comparison](https://via.placeholder.com/800x400/FF6B35/FFFFFF?text=Agent+Comparison)
-
-### API Documentation
-![API Docs](https://via.placeholder.com/800x400/9B59B6/FFFFFF?text=API+Documentation)
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. **Fork the repository**
-2. **Create a feature branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Make your changes**
-4. **Add tests** (if applicable)
-5. **Commit your changes**
-   ```bash
-   git commit -m 'Add amazing feature'
-   ```
-6. **Push to the branch**
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-7. **Open a Pull Request**
-
-### Development Setup
+Requirements: Python 3.9+, a CUDA-capable GPU (about 6 GB+ VRAM for the 4-bit 6.7B model).
 
 ```bash
-# Install development dependencies
 pip install -r requirements.txt
 
-# Run tests
-python -m pytest tests/
+# Backend (http://127.0.0.1:8000, API docs at /docs)
+uvicorn main:app --host 0.0.0.0 --port 8000
 
-# Format code
-black .
+# Frontend (http://localhost:8501)
+CUDA_BACKEND_URL=http://127.0.0.1:8000 streamlit run frontend/app.py
 
-# Lint code
-flake8 .
+# Optional: smoke-test both endpoints while the backend is running
+python scripts/smoke_test.py
 ```
 
-## 📄 License
+## API
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Method | Endpoint | Body | Returns |
+|---|---|---|---|
+| GET | `/` | – | Health message |
+| POST | `/run-agents` | `{"code": "..."}` | `final_code`, `winner`, `reason`, `metrics`, `versions`, `baseline` |
+| POST | `/planner` | `{"text": "..."}` | Same shape as `/run-agents` |
 
-## 🙏 Acknowledgments
+## Known limitations and next steps
 
-- [DeepSeek AI](https://github.com/deepseek-ai) for the code generation models
-- [Hugging Face](https://huggingface.co/) for the transformers library
-- [FastAPI](https://fastapi.tiangolo.com/) for the web framework
-- [Streamlit](https://streamlit.io/) for the frontend framework
+- **Shared GPU model:** the three agents run concurrently from the server's point of view, but they share one model on one GPU, so generation is largely serialized. Batching the three prompts or using an inference server (e.g. vLLM) would give a real speed-up.
+- **Heuristic judge is shallow:** checks like `"try" in code` can be fooled. The strongest improvement would be to execute each version against test cases in a sandbox and score on pass rate.
+- **Self-evaluation bias:** the same model generates and judges. A different judge model or test-based scoring would be fairer.
+- **Output length:** agents are capped at 200 new tokens, which can truncate longer code.
+- Future scope: more languages, cloud deployment, and more specialised agents (security audit, SQL query optimisation).
 
-## 📞 Support
+## License
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/cuda-assistant/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/cuda-assistant/discussions)
-- **Email**: your.email@example.com
-
----
-
-<div align="center">
-
-**Made with ❤️ by Yamini Thirumani**
-
-[![GitHub stars](https://img.shields.io/github/stars/yaminithirumani/cuda?style=social)](https://github.com/yourusername/cuda-assistant)
-[![GitHub forks](https://img.shields.io/github/forks/yaminithirumani/cuda?style=social)](https://github.com/yourusername/cuda-assistant)
-[![GitHub issues](https://img.shields.io/github/issues/yaminithirumani/cuda)](https://github.com/yaminithirumani/cuda/issues)
-
-</div>
+MIT

@@ -4,6 +4,9 @@ from agents.optimizer_agent import run_optimizer
 from agents.judge_agent import judge_agent
 from agents.model_loader import pipe
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 def call_agent(prompt, pipe):
     response = pipe(prompt, max_new_tokens=200)
@@ -19,9 +22,10 @@ def call_agent(prompt, pipe):
 
 async def run_all_agents(code: str):
     """Run fix, refactor, and optimize agents in parallel and return the best solution."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
-    # Run agents concurrently using executor
+    # Model calls are blocking, so each agent runs in a worker thread.
+    # This keeps the async FastAPI server responsive while the agents run.
     fixed_future = loop.run_in_executor(None, rootcause_fix, code, pipe, call_agent)
     refactored_future = loop.run_in_executor(None, run_refactor, code, pipe, call_agent)
     optimized_future = loop.run_in_executor(None, run_optimizer, code, pipe, call_agent)
@@ -37,17 +41,18 @@ async def run_all_agents(code: str):
         "optimized": optimized_code,
     }
 
-    # ✅ Log agent outputs for debugging
-    print("✅ Agent outputs:")
-    print("->Fixed:\n", fixed_code)
-    print("->Refactored:\n", refactored_code)
-    print("->Optimized:\n", optimized_code)
+    logger.debug("Agent outputs: %s", versions)
 
-    # Use the aliased judge agent
+    # The judge picks the best of the three versions
     final = judge_agent(versions)
 
-    return {
-        "final_code": final["code"],
-        "winner": final["winner"],
-        "reason": final["reason"]
+    result = {
+        "final_code": final.get("code", ""),
+        "winner": final.get("winner", ""),
+        "reason": final.get("reason", ""),
+        "metrics": final.get("metrics", {}),
+        "versions": versions,
+        "baseline": code,
     }
+
+    return result
